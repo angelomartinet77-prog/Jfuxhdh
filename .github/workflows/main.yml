@@ -1,0 +1,53 @@
+name: macOS Remote VNC via Tailscale
+
+on:
+  workflow_dispatch: # Déclenchement manuel depuis l'interface GitHub
+
+jobs:
+  remote-desktop:
+    runs-on: macos-latest
+
+    steps:
+      - name: Récupérer le code du dépôt
+        uses: actions/checkout@v4
+
+      # 1. Connexion automatique à ton réseau privé Tailscale
+      - name: Connexion au réseau Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+
+      # 2. Activation et configuration du serveur VNC natif de macOS
+      - name: Activer et configurer le VNC macOS
+        run: |
+          echo "=== Création de l'utilisateur VNC ==="
+          sudo dscl . -create /Users/vncuser
+          sudo dscl . -create /Users/vncuser UserShell /bin/bash
+          sudo dscl . -create /Users/vncuser RealName "VNC User"
+          sudo dscl . -create /Users/vncuser UniqueID 502
+          sudo dscl . -create /Users/vncuser PrimaryGroupID 20
+          sudo dscl . -create /Users/vncuser NFSHomeDirectory /Users/vncuser
+          sudo dscl . -passwd /Users/vncuser "MonMotDePasseSecurise123!"
+          sudo createhomedir -c -u vncuser
+          
+          echo "=== Attribution des droits Administrateur ==="
+          sudo dscl . -append /Groups/admin GroupMembership vncuser
+
+          echo "=== Activation du partage d'écran macOS ==="
+          sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
+
+      # 3. Forcer le serveur graphique à s'activer pour éviter l'écran noir sur bVNC
+      - name: Forcer l'affichage graphique de macOS
+        run: |
+          sudo launchctl start com.apple.WindowServer || true
+          echo "Interface graphique réveillée."
+
+      # 4. Maintien de la machine active pendant 1 heure
+      - name: Maintenir la session active (Timeout 1 heure)
+        run: |
+          echo "=========================================================="
+          echo "  Machine macOS prête ! Connecte-toi via Tailscale."
+          echo "  Identifiant de connexion VNC : vncuser"
+          echo "  Mot de passe VNC             : MonMotDePasseSecurise123!"
+          echo "=========================================================="
+          sleep 3600
