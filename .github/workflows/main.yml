@@ -1,0 +1,34 @@
+name: Linux GNOME Desktop via Tailscale
+
+on: workflow_dispatch
+
+jobs:
+  desktop:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Installer GNOME + VNC
+        run: |
+          sudo apt update
+          sudo apt install -y ubuntu-desktop tightvncserver gnome-session gdm3
+
+          mkdir -p ~/.vnc
+          echo "github" | vncpasswd -f > ~/.vnc/passwd
+          chmod 600 ~/.vnc/passwd
+
+          echo "gnome-session" > ~/.vnc/xstartup
+          chmod +x ~/.vnc/xstartup
+
+          vncserver :1
+
+      - name: Installer Tailscale
+        run: |
+          curl -fsSL https://tailscale.com/install.sh | sh
+
+      - name: Démarrer Tailscale
+        run: |
+          sudo tailscale up --authkey ${{ secrets.TAILSCALE_AUTH_KEY }} --hostname github-linux-gnome
+
+      - name: Afficher l'IP Tailscale
+        run: tailscale ip -4
+        
